@@ -1,4 +1,4 @@
-package com.scc;
+package com.scc.ui;
 
 import com.scc.dao.UserDao;
 import com.scc.model.user;
@@ -6,11 +6,16 @@ import com.scc.model.user;
 import java.util.List;
 import java.util.Scanner;
 
-public class Main {
-    private static final UserDao userDao = new UserDao();
-    private static final Scanner scanner = new Scanner(System.in);
+public class Authentication {
+    private final UserDao userDao;
+    private final Scanner scanner;
 
-    public static void main(String[] args) {
+    public Authentication(UserDao userDao, Scanner scanner) {
+        this.userDao = userDao;
+        this.scanner = scanner;
+    }
+
+    public void start() {
         while (true) {
             System.out.println("\n==================================");
             System.out.println("   CAMPUS GEARLEND HUB SYSTEM     ");
@@ -35,7 +40,7 @@ public class Main {
         }
     }
 
-    private static void handleRegister() {
+    private void handleRegister() {
         System.out.print("Enter full name: ");
         String name = scanner.nextLine();
         System.out.print("Enter email: ");
@@ -48,11 +53,16 @@ public class Main {
         System.out.println("Select Role:");
         System.out.println("1. STUDENT");
         System.out.println("2. TEACHER");
+        System.out.println("3. ADMIN");
         System.out.print("Choice: ");
         int roleChoice = scanner.nextInt();
         scanner.nextLine();
 
-        String role = (roleChoice == 2) ? "TEACHER" : "STUDENT";
+        String role = switch (roleChoice) {
+            case 2 -> "TEACHER";
+            case 3 -> "ADMIN";
+            default -> "STUDENT";
+        };
 
         boolean success = userDao.registerUser(name, email, password, role, department);
         if (success) {
@@ -60,7 +70,7 @@ public class Main {
         }
     }
 
-    private static void handleLogin() {
+    private void handleLogin() {
         System.out.print("Enter email: ");
         String email = scanner.nextLine();
         System.out.print("Enter password: ");
@@ -75,7 +85,9 @@ public class Main {
 
             System.out.println("\nLogin Successful! Welcome, " + currentUser.name() + " (" + currentUser.role() + ")");
 
-            if ("TEACHER".equals(currentUser.role())) {
+            if ("ADMIN".equalsIgnoreCase(currentUser.role())) {
+                AdminMenu.showAdminMenu(currentUser);
+            } else if ("TEACHER".equals(currentUser.role())) {
                 teacherDashboard();
             } else {
                 studentDashboard(currentUser);
@@ -85,9 +97,9 @@ public class Main {
         }
     }
 
-    private static void teacherDashboard() {
+    private void teacherDashboard() {
         while (true) {
-            System.out.println("\n--- Teacher / Admin Dashboard ---");
+            System.out.println("\n--- Teacher Dashboard ---");
             System.out.println("1. View & Approve Pending Accounts");
             System.out.println("2. Logout");
             System.out.print("Choose an option: ");
@@ -121,7 +133,7 @@ public class Main {
         }
     }
 
-    private static void studentDashboard(user currentUser) {
+    private void studentDashboard(user currentUser) {
         while (true) {
             System.out.println("\n--- Student Dashboard ---");
             System.out.println("1. View Profile");

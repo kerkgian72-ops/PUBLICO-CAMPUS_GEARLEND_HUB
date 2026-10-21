@@ -49,7 +49,53 @@ public class UserDao {
         return null;
     }
 
+    public List<user> getAllUsers() {
+        List<user> users = new ArrayList<>();
+        String sql = "SELECT * FROM users";
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                users.add(mapResultSetToUser(rs));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching all users: " + e.getMessage());
+        }
+        return users;
+    }
+
+    public List<user> getPendingUsers() {
+        List<user> users = new ArrayList<>();
+        String sql = "SELECT * FROM users WHERE status = 'PENDING'";
+        try (Connection conn = DatabaseConnection.getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                users.add(mapResultSetToUser(rs));
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching pending users: " + e.getMessage());
+        }
+        return users;
+    }
+
+    public boolean approveUser(int userId) {
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            System.out.println("Error approving user: " + e.getMessage());
+            return false;
+        }
+    }
+
     public List<user> getUsersByStatus(String status) {
+        if ("PENDING".equalsIgnoreCase(status)) {
+            return getPendingUsers();
+        }
         List<user> users = new ArrayList<>();
         String sql = "SELECT * FROM users WHERE status = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -57,23 +103,18 @@ public class UserDao {
             pstmt.setString(1, status);
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
-                users.add(new user(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getString("email"),
-                        rs.getString("password"),
-                        rs.getString("role"),
-                        rs.getString("department"),
-                        rs.getString("status")
-                ));
+                users.add(mapResultSetToUser(rs));
             }
         } catch (SQLException e) {
-            System.out.println("Error fetching users: " + e.getMessage());
+            System.out.println("Error fetching users by status: " + e.getMessage());
         }
         return users;
     }
 
     public boolean updateStatus(int userId, String newStatus) {
+        if ("APPROVED".equalsIgnoreCase(newStatus)) {
+            return approveUser(userId);
+        }
         String sql = "UPDATE users SET status = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -85,5 +126,17 @@ public class UserDao {
             System.out.println("Error updating status: " + e.getMessage());
             return false;
         }
+    }
+
+    private user mapResultSetToUser(ResultSet rs) throws SQLException {
+        return new user(
+                rs.getInt("id"),
+                rs.getString("name"),
+                rs.getString("email"),
+                rs.getString("password"),
+                rs.getString("role"),
+                rs.getString("department"),
+                rs.getString("status")
+        );
     }
 }
