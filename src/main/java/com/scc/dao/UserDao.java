@@ -79,6 +79,7 @@ public class UserDao {
         return users;
     }
 
+    // Overloaded approveUser supporting single parameter call
     public boolean approveUser(int userId) {
         String sql = "UPDATE users SET status = 'APPROVED' WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -92,7 +93,28 @@ public class UserDao {
         }
     }
 
-    // Matches tutorial implementation: updates role and status using parameterized PreparedStatement
+    // Overloaded approveUser supporting dual parameters (userId and adminId for audit logging)
+    public boolean approveUser(int userId, int adminId) {
+        String sql = "UPDATE users SET status = 'APPROVED' WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, userId);
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                ActivityLogDao logDao = new ActivityLogDao();
+                logDao.logAction(
+                        adminId,
+                        "USER_APPROVED",
+                        "Admin [" + adminId + "] approved account for User ID " + userId
+                );
+                return true;
+            }
+        } catch (SQLException e) {
+            System.out.println("Error approving user: " + e.getMessage());
+        }
+        return false;
+    }
+
     public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus) {
         String sql = "UPDATE users SET role = ?, status = ? WHERE id = ?";
         try (Connection conn = DatabaseConnection.getConnection();
@@ -108,6 +130,30 @@ public class UserDao {
         }
     }
 
+    // Overloaded updateUserRoleAndStatus supporting 4 parameters (with adminId for audit logging)
+    public boolean updateUserRoleAndStatus(int userId, String newRole, String newStatus, int adminId) {
+        String sql = "UPDATE users SET role = ?, status = ? WHERE id = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, newRole.toUpperCase());
+            pstmt.setString(2, newStatus.toUpperCase());
+            pstmt.setInt(3, userId);
+            int rowsAffected = pstmt.executeUpdate();
+            if (rowsAffected > 0) {
+                ActivityLogDao logDao = new ActivityLogDao();
+                logDao.logAction(
+                        adminId,
+                        "USER_UPDATED",
+                        "Admin [" + adminId + "] changed role of User " + userId + " to " + newRole + " (" + newStatus + ")"
+                );
+                return true;
+            }
+        } catch (SQLException e) {
+            System.out.println("Error updating user: " + e.getMessage());
+        }
+        return false;
+    }
+
     public List<user> getUsersByStatus(String status) {
         if ("PENDING".equalsIgnoreCase(status)) {
             return getPendingUsers();
@@ -116,7 +162,7 @@ public class UserDao {
         String sql = "SELECT * FROM users WHERE status = ?";
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, status);
+            pstmt.setString(1, status.toUpperCase());
             ResultSet rs = pstmt.executeQuery();
             while (rs.next()) {
                 users.add(mapResultSetToUser(rs));
